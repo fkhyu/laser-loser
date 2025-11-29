@@ -5,47 +5,59 @@ async def main():
     async with ArtNetNode.create('10.1.1.104', 6454) as node:
         universe = node.add_universe(1)
 
-        # Suppose fixture expects 51 channels starting at slot 1
-        # Create a channel block of width 51
+        # 51 channels starting at DMX address 1
         channel = universe.add_channel(start=1, width=51)
 
-        # Build the data array (0–255 values for each channel)
-        data = [0] * 51
+        # DMX data buffer
+        d = [0] * 51
 
-        # Example mapping – these numbers are hypothetical,
-        # you must replace them with those from your 51-channel mode DMX chart.
-        PAN_COARSE = 0  # index in data array (0-based)
-        PAN_FINE   = 1
-        TILT_COARSE= 2
-        TILT_FINE  = 3
-        MASTER_DIMMER = 4
-        PIXEL1_R = 10   # for example
-        PIXEL1_G = 11
-        PIXEL1_B = 12
-        # ... further pixel channels as defined
+        # PAN & TILT
+        d[0] = 125          # pan coarse
+        d[1] = 0            # pan fine
+        d[2] = 20           # tilt coarse
+        d[3] = 0            # tilt fine
 
-        # Set pan to 125 → convert to DMX coarse/fine as needed
-        data[PAN_COARSE] = 125
-        data[PAN_FINE]   = 0  # if you don’t need fine control
+        # Motion speed (0 = fast, 255 = slow)
+        d[4] = 100          # feels smooth but not sluggish
 
-        # Set tilt to 20 → map to DMX value
-        data[TILT_COARSE] = 20
-        data[TILT_FINE]   = 0
+        # Zoom
+        d[5] = 255          # full wide
 
-        # Master dimmer to full
-        data[MASTER_DIMMER] = 255
+        # Dimmer
+        d[7] = 255          # full output
 
-        # Pixel-wise: only central pixel red
-        data[PIXEL1_R] = 255
-        data[PIXEL1_G] = 0
-        data[PIXEL1_B] = 0
+        # Strobe mode (keep constant on)
+        d[8] = 0
 
-        # All other pixel bytes are already zero (others off)
+        # Base RGB(W) output — keep off
+        d[9]  = 0
+        d[10] = 0
+        d[11] = 0
+        d[12] = 0
 
-        # Send immediately (no fade)
-        channel.set_values(data)
+        # Background RGBW — keep off
+        d[18] = 0
+        d[19] = 0
+        d[20] = 0
+        d[21] = 0
 
-        # Optionally hold for a while so the light stays that way
-        await asyncio.sleep(10)
+        # SEGMENT COLOR CONTROL
+        # Segment layout (per manual):
+        # 24–27 = seg1, 28–31 = seg2, 32–35 = seg3,
+        # 36–39 = seg4, 40–43 = seg5, 44–47 = seg6, 48–51 = seg7
+
+        # Light ONLY segment 4 RED
+        seg4 = 36 - 1  # python index starting at 0, segment4 starts at DMX channel 36
+        d[seg4]     = 255   # R
+        d[seg4 + 1] = 0     # G
+        d[seg4 + 2] = 0     # B
+        d[seg4 + 3] = 0     # W
+
+        # Send instantly
+        channel.set_value(d)
+
+        # Hold state
+        await asyncio.sleep(5)
+
 
 asyncio.run(main())
